@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PLANKA</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    background: #22252a;
+    color: #e6e8ea;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    height: 48px;
+    background: #191c1f;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+  }
+  header .name { font-size: 20px; font-weight: 700; }
+  .tab {
+    display: inline-block;
+    margin: 30px 0 0 20px;
+    padding: 10px 20px;
+    background: #191c1f;
+    border-radius: 4px 4px 0 0;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  main {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 24px 20px;
+  }
+  .list {
+    width: 272px;
+    background: #dfe3e6;
+    border-radius: 4px;
+    padding: 0 0 8px;
+  }
+  .list h2 {
+    margin: 0;
+    padding: 12px 12px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #17394d;
+  }
+  .card {
+    margin: 4px 8px;
+    padding: 8px 10px;
+    background: #fff;
+    border-radius: 3px;
+    color: #17394d;
+    line-height: 1.35;
+  }
+  .empty { padding: 8px 12px; color: #6b808c; }
+</style>
+</head>
+<body>
+<header><span class="name" id="board-name"></span></header>
+<div class="tab" id="board-tab"></div>
+<main id="lists"></main>
+<script>
+  // The board id is written into the page by the endpoint that served it, so this file is a
+  // static resource rather than a template with a second life as a string in Java.
+  const boardId = document.body.dataset.boardId;
+
+  // Every piece of server-owned state on this page comes from the stream, including the first
+  // render: the first frame the endpoint sends is the board's whole current state, so there is
+  // no fetch here to race with the subscription and nothing to re-fetch after a reconnect.
+  // EventSource reopens on its own, and because each frame is a whole state rather than a
+  // delta, a reconnect needs no catch-up protocol.
+  const stream = new EventSource(`/boards/${boardId}/stream`);
+
+  stream.onmessage = (message) => {
+    const board = JSON.parse(message.data);
+    document.getElementById('board-name').textContent = board.name;
+    document.getElementById('board-tab').textContent = board.name;
+
+    const main = document.getElementById('lists');
+    main.replaceChildren(...board.lists.map((list) => {
+      const column = document.createElement('section');
+      column.className = 'list';
+
+      const heading = document.createElement('h2');
+      heading.textContent = list.name;
+      column.append(heading);
+
+      const cards = board.cards.filter((card) => card.listId === list.id);
+      if (cards.length === 0) {
+        const none = document.createElement('div');
+        none.className = 'empty';
+        none.textContent = 'No cards';
+        column.append(none);
+      }
+      cards.forEach((card) => {
+        const item = document.createElement('article');
+        item.className = 'card';
+        item.textContent = card.name;
+        column.append(item);
+      });
+
+      return column;
+    }));
+  };
+</script>
+</body>
+</html>
